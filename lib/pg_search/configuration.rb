@@ -87,6 +87,7 @@ module PgSearch
       {using: :tsearch}
     end
 
+    # standard:disable Lint/UselessConstantScoping
     VALID_KEYS = %w[
       against ranked_by ignoring using query associated_against order_within_rank ranking_order
     ].map(&:to_sym)
@@ -94,6 +95,7 @@ module PgSearch
     VALID_VALUES = {
       ignoring: [:accents]
     }.freeze
+    # standard:enable Lint/UselessConstantScoping
 
     def assert_valid_options(options)
       unless options[:against] || options[:associated_against] || using_tsvector_column?(options[:using])
