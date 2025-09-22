@@ -90,10 +90,12 @@ module PgSearch
     end
 
     def conditions
-      config.features
-        .reject { |_feature_name, feature_options| feature_options && feature_options[:sort_only] }
-        .map { |feature_name, _feature_options| feature_for(feature_name).conditions }
-        .inject { |accumulator, expression| Arel::Nodes::Or.new(accumulator, expression) }
+      expressions =
+        config.features
+          .reject { |_feature_name, feature_options| feature_options && feature_options[:sort_only] }
+          .map { |feature_name, _feature_options| feature_for(feature_name).conditions }
+
+      or_node(expressions)
     end
 
     def order_clause(rank_table_alias)
@@ -110,6 +112,25 @@ module PgSearch
       Arel.sql([pre_order, rank_order, post_order].compact.join(", "))
     end
 
+    # https://github.com/rails/rails/pull/51492
+    # :nocov:
+    # standard:disable Lint/DuplicateMethods
+    or_arity = Arel::Nodes::Or.instance_method(:initialize).arity
+    case or_arity
+    when 1
+      def or_node(expressions)
+        Arel::Nodes::Or.new(expressions)
+      end
+    when 2
+      def or_node(expressions)
+        expressions.inject { |accumulator, expression| Arel::Nodes::Or.new(accumulator, expression) }
+      end
+    else
+      raise "Unsupported arity #{or_arity} for Arel::Nodes::Or#initialize"
+    end
+    # :nocov:
+    # standard:enable Lint/DuplicateMethods
+
     def primary_key
       "#{quoted_table_name}.#{connection.quote_column_name(model.primary_key)}"
     end
@@ -122,7 +143,7 @@ module PgSearch
       end
     end
 
-    FEATURE_CLASSES = {
+    FEATURE_CLASSES = { # standard:disable Lint/UselessConstantScoping
       dmetaphone: Features::DMetaphone,
       tsearch: Features::TSearch,
       trigram: Features::Trigram
